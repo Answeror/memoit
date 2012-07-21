@@ -1,0 +1,7 @@
+dist/
+build/
+__pycache__/
+*/__pycache__/
+*.swp
+*.lock
+*.pyc

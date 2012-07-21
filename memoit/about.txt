@@ -1,0 +1,3 @@
+<h1>memoit</h1>
+<p>Just a tool combining <a href="http://dict.youdao.com/">Youdao dictionary</a> and <a href="http://ankisrs.net/">Anki</a>.</p>
+<p>Source: <a href="http://github.com/Answeror/memoit">http://github.com/Answeror/memoit</a></p>
