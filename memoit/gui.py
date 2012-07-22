@@ -24,6 +24,7 @@ from PyQt4.QtGui import\
         QIcon,\
         QPushButton,\
         QGridLayout,\
+        QRadioButton,\
         QDialog
 from PyQt4.QtCore import QRunnable, Qt, QObject, pyqtSignal, QMutex,\
         QSettings,\
@@ -98,6 +99,8 @@ class Settings(object):
         finally:
             self.settings.endGroup()
 
+    UNDEFINED = 'undefined'
+
     @property
     def username(self):
         return self.get('username')
@@ -122,6 +125,15 @@ class Settings(object):
     def deck(self, value):
         return self.set('deck', value)
 
+    @property
+    def minimize_on_close(self):
+        value = self.get('minimize_on_close')
+        return bool(value) if value != self.UNDEFINED else self.UNDEFINED
+
+    @minimize_on_close.setter
+    def minimize_on_close(self, value):
+        return self.set('minimize_on_close', str(value))
+
 
 class SettingsDialog(QDialog):
 
@@ -134,18 +146,31 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout()
 
         settings_layout = QGridLayout()
+
         username_label = QLabel('Username:')
         settings_layout.addWidget(username_label, 0, 0)
         self.username_edit = QLineEdit()
         settings_layout.addWidget(self.username_edit, 0, 1)
+
         password_label = QLabel('Password:')
         settings_layout.addWidget(password_label, 1, 0)
         self.password_edit = QLineEdit()
         settings_layout.addWidget(self.password_edit, 1, 1)
+
         deck_label = QLabel('Deck:')
         settings_layout.addWidget(deck_label, 2, 0)
         self.deck_edit = QLineEdit()
         settings_layout.addWidget(self.deck_edit, 2, 1)
+
+        moc_label = QLabel('Minimize on close:')
+        settings_layout.addWidget(moc_label, 3, 0)
+        moc_layout = QHBoxLayout()
+        self.moc_radio_button = QRadioButton('Yes', self)
+        moc_layout.addWidget(self.moc_radio_button)
+        self.nomoc_radio_button = QRadioButton('No', self)
+        moc_layout.addWidget(self.nomoc_radio_button)
+        settings_layout.addLayout(moc_layout, 3, 1)
+
         layout.addLayout(settings_layout)
 
         button_layout = QHBoxLayout()
@@ -163,12 +188,27 @@ class SettingsDialog(QDialog):
         self.username_edit.setText(self.settings.username)
         self.password_edit.setText(self.settings.password)
         self.deck_edit.setText(self.settings.deck)
+
+        if self.settings.minimize_on_close != Settings.UNDEFINED:
+            if self.settings.minimize_on_close:
+                self.moc_radio_button.setChecked(True)
+            else:
+                self.nomoc_radio_button.setChecked(True)
+
         super(SettingsDialog, self).showEvent(e)
 
     def accept(self):
         self.settings.username = self.username_edit.text()
         self.settings.password = self.password_edit.text()
         self.settings.deck = self.deck_edit.text()
+
+        if self.moc_radio_button.isChecked():
+            self.settings.minimize_on_close = True
+        elif self.nomoc_radio_button.isChecked():
+            self.settings.minimize_on_close = False
+        else:
+            pass
+
         return super(SettingsDialog, self).accept()
 
 
@@ -219,6 +259,26 @@ class Window(QWidget):
             QTimer.singleShot(0, self.hide)
         else:
             super(Window, self).changeEvent(e)
+
+    def closeEvent(self, e):
+        if self.settings.minimize_on_close == Settings.UNDEFINED:
+            reply = QMessageBox.question(
+                self,
+                'Message',
+                'Do you want to minimize to tray?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+                )
+            self.settings.minimize_on_close =\
+                True if reply == QMessageBox.Yes else False
+
+        assert self.settings.minimize_on_close != Settings.UNDEFINED
+
+        if self.settings.minimize_on_close:
+            self.hide()
+            e.ignore()
+        else:
+            e.accept()
 
     @pyqtSlot(Tray.ActivationReason)
     def icon_activated(self, reason):
