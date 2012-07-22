@@ -28,6 +28,8 @@ from PyQt4.QtGui import\
 from PyQt4.QtCore import QRunnable, Qt, QObject, pyqtSignal, QMutex,\
         QSettings,\
         QFile,\
+        QEvent,\
+        QTimer,\
         QMutexLocker, QThreadPool, pyqtSlot
 from .core import format, parse, query
 from .anki import Recorder
@@ -206,10 +208,37 @@ class Window(QWidget):
 
         # tray
         self.tray = Tray(QIcon(':/tray.png'), self)
+        self.tray.activated.connect(self.icon_activated)
         self.tray.show()
 
         # must after settings set up
         self.try_login()
+
+    def changeEvent(self, e):
+        if e.type() == QEvent.WindowStateChange and self.isMinimized():
+            QTimer.singleShot(0, self.hide)
+        else:
+            super(Window, self).changeEvent(e)
+
+    @pyqtSlot(Tray.ActivationReason)
+    def icon_activated(self, reason):
+        if reason == Tray.DoubleClick:
+            if self.isVisible():
+                self.hide()
+            else:
+                # work but lose old window position
+                # see `http://qt-project.org/forums/viewreply/36525/`_
+                #flags = self.windowFlags()
+                #flags |= Qt.WindowStaysOnTopHint
+                #self.setWindowFlags(flags)
+                #flags &= ~Qt.WindowStaysOnTopHint
+                #self.setWindowFlags(flags)
+                #self.showNormal()
+
+                # perfect
+                # see `http://stackoverflow.com/a/7820461`_
+                self.show()
+                self.setWindowState(Qt.WindowActive)
 
     @pyqtSlot()
     def about(self):
