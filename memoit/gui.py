@@ -214,6 +214,10 @@ class Window(QWidget):
         # must after settings set up
         self.try_login()
 
+    def closeEvent(self, e):
+        QApplication.instance().quit()
+        super(Window, self).closeEvent(e)
+
     def changeEvent(self, e):
         if e.type() == QEvent.WindowStateChange and self.isMinimized():
             QTimer.singleShot(0, self.hide)
@@ -237,6 +241,13 @@ class Window(QWidget):
 
                 # perfect
                 # see `http://stackoverflow.com/a/7820461`_
+                # ``Qt.WindowNoState`` and ``Qt.WindowActive`` are all
+                # acceptable
+                # ``show`` and ``setWindowState`` calling order matters
+                # if ``show`` first and window is minimized (not close)
+                # then this call order will produce "fly in" effect
+                # but for bdist version, ``setWindowState`` first wiil
+                # cause focus lost
                 self.show()
                 self.setWindowState(Qt.WindowActive)
 
@@ -316,6 +327,10 @@ def main(argv):
     #fix_tray_icon()
 
     app = QApplication(argv)
+    # do not quit when main window in hidden and tray menu generated dialog
+    # closed
+    # see `http://stackoverflow.com/a/7979775/238472`_ for details
+    app.setQuitOnLastWindowClosed(False)
     # don't know why
     app.setWindowIcon(QIcon(':/taskbar.png'))
     win = Window()
