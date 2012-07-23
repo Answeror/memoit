@@ -39,6 +39,8 @@ setup(
         executables=[Executable(
             'main.py',
             base='Win32GUI',
-            targetName='memoit.exe'
+            targetName='memoit.exe',
+            compress=True,
+            icon='memoit/icons/64.ico'
             )]
         )

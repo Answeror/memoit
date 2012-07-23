@@ -248,8 +248,10 @@ class Window(QWidget):
                 # then this call order will produce "fly in" effect
                 # but for bdist version, ``setWindowState`` first wiil
                 # cause focus lost
-                self.show()
                 self.setWindowState(Qt.WindowActive)
+                self.show()
+                self.raise_()
+                self.activateWindow()
 
     @pyqtSlot()
     def about(self):
@@ -323,7 +325,21 @@ def trans(word, record):
     #ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
 
 
+#def allow_set_foreground_window(processid=-1):
+    #"""Allow a given process to set the foreground window
+
+    #See `https://bitbucket.org/fkimaru/thg/src/5defd12d3b47/tortoisehg/hgqt/workbench.py`_.
+    #"""
+    ## processid = -1 means ASFW_ANY (i.e. allow any process)
+    #if os.name == 'nt':
+        ## on windows we must explicitly allow bringing the main window to
+        ## the foreground. To do so we must use ctypes
+        #from ctypes import windll
+        #windll.user32.AllowSetForegroundWindow(processid)
+
+
 def main(argv):
+    #allow_set_foreground_window()
     #fix_tray_icon()
 
     app = QApplication(argv)
