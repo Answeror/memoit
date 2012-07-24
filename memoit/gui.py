@@ -25,8 +25,12 @@ from PyQt4.QtGui import\
         QPushButton,\
         QGridLayout,\
         QDialog
-from PyQt4.QtCore import QRunnable, Qt, QObject, pyqtSignal, QMutex,\
-        QSettings,\
+from PyQt4.QtCore import\
+        QRunnable,\
+        Qt,\
+        QObject,\
+        pyqtSignal,\
+        QMutex,\
         QFile,\
         QEvent,\
         QTimer,\
@@ -36,6 +40,7 @@ from .anki import Recorder
 from datetime import datetime
 from . import resources_rc
 #import os
+from .settings import settings
 
 
 class Input(QLineEdit):
@@ -76,51 +81,6 @@ class Runnable(QRunnable):
     def run(self):
         with QMutexLocker(self.mutex):
             self.finished.emit(self.fn())
-
-
-class Settings(object):
-
-    def __init__(self):
-        self.settings = QSettings('helanic', 'memoit')
-        self.groupname = 'anki'
-
-    def get(self, key):
-        self.settings.beginGroup(self.groupname)
-        try:
-            return self.settings.value(key, '')
-        finally:
-            self.settings.endGroup()
-
-    def set(self, key, value):
-        self.settings.beginGroup(self.groupname)
-        try:
-            self.settings.setValue(key, value)
-        finally:
-            self.settings.endGroup()
-
-    @property
-    def username(self):
-        return self.get('username')
-
-    @username.setter
-    def username(self, value):
-        return self.set('username', value)
-
-    @property
-    def password(self):
-        return self.get('password')
-
-    @password.setter
-    def password(self, value):
-        return self.set('password', value)
-
-    @property
-    def deck(self):
-        return self.get('deck')
-
-    @deck.setter
-    def deck(self, value):
-        return self.set('deck', value)
 
 
 class SettingsDialog(QDialog):
@@ -191,7 +151,11 @@ class Window(QWidget):
         self.recorder = None
 
         # settins
-        self.settings = Settings()
+        self.settings = settings(dict(
+            username='',
+            password='',
+            deck=''
+            ))
         self.settings_dialog = SettingsDialog(self.settings)
         self.settings_dialog.accepted.connect(self.login)
 
@@ -265,7 +229,8 @@ class Window(QWidget):
             self.login()
 
     def login(self):
-        assert self.settings.username, 'Invalid username.'
+        assert self.settings.username,\
+            'Invalid username: %s' % self.settings.username
 
         def inner():
             try:
@@ -343,6 +308,9 @@ def main(argv):
     #fix_tray_icon()
 
     app = QApplication(argv)
+    app.setOrganizationName('helanic')
+    app.setOrganizationDomain('answeror.com')
+    app.setApplicationName('memoit')
     # do not quit when main window in hidden and tray menu generated dialog
     # closed
     # see `http://stackoverflow.com/a/7979775/238472`_ for details
