@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<yodaodict>
+  <return-phrase><![CDATA[hello]]></return-phrase>
+  
+                            <phonetic-symbol>he'ləu, hə-</phonetic-symbol>
+                  <dictcn-speach>hello</dictcn-speach>
+                          <custom-translation>
+        <type>ec</type>
+                  <translation><content><![CDATA[n. 表示问候， 惊奇或唤起注意时的用语]]></content></translation>
+                  <translation><content><![CDATA[int. 喂；哈罗]]></content></translation>
+                </custom-translation>
+          
+              <yodao-web-dict>
+                    <web-translation>
+                <key><![CDATA[Hello]]></key>
+                          <trans><value><![CDATA[你好]]></value></trans>
+                  <trans><value><![CDATA[您好]]></value></trans>
+                  <trans><value><![CDATA[哈啰]]></value></trans>
+                </web-translation>
+              <web-translation>
+                <key><![CDATA[Hello Kitty]]></key>
+                          <trans><value><![CDATA[凯蒂猫]]></value></trans>
+                  <trans><value><![CDATA[昵称]]></value></trans>
+                  <trans><value><![CDATA[凯帝猫]]></value></trans>
+                </web-translation>
+              <web-translation>
+                <key><![CDATA[hello barbie]]></key>
+                          <trans><value><![CDATA[哈啰芭比]]></value></trans>
+                </web-translation>
+            </yodao-web-dict>
+    
+          <sexp>0</sexp>
+</yodaodict>

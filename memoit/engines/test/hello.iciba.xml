@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dict num="219" id="219" name="219">
+<key>hello</key>
+<ps>heˈləu</ps>
+<pron>http://res-tts.iciba.com/5/d/4/5d41402abc4b2a76b9719d911017c592.mp3</pron>
+<ps>hɛˈlo, hə-</ps>
+<pron>http://res.iciba.com/resource/amp3/1/0/5d/41/5d41402abc4b2a76b9719d911017c592.mp3</pron>
+<pos>int.</pos>
+<acceptation>哈喽，喂；你好，您好；表示问候；打招呼；
+</acceptation>
+<pos>n.</pos>
+<acceptation>“喂”的招呼声或问候声；
+</acceptation>
+<pos>vi.</pos>
+<acceptation>喊“喂”；
+</acceptation>
+<sent><orig>
+Say hello to him for me.; Tell him "hello" for me.
+</orig>
+<trans>
+代我问候他。
+</trans></sent>
+<sent><orig>
+Hello! How are you?
+</orig>
+<trans>
+嘿，你好？
+</trans></sent>
+<sent><orig>
+Hello! This is Mrs. Green speaking.
+</orig>
+<trans>
+（在电话中说）喂！我是格林太太。
+</trans></sent>
+<sent><orig>
+Hello! This is little Li speaking.
+</orig>
+<trans>
+喂，我是小李。
+</trans></sent>
+<sent><orig>
+Hello!; So you're here already.
+</orig>
+<trans>
+你来啦！
+</trans></sent>
+</dict>
