@@ -35,12 +35,14 @@ from PyQt4.QtCore import\
         QEvent,\
         QTimer,\
         QMutexLocker, QThreadPool, pyqtSlot
-from .core import format, parse, query
 from .anki import Recorder
 from datetime import datetime
 from . import resources_rc
 #import os
 from .settings import settings
+
+from .core import format
+from .engines import youdao, iciba
 
 
 class Input(QLineEdit):
@@ -274,9 +276,10 @@ class Window(QWidget):
 
 
 def trans(word, record):
-    s = parse(query(word))
-    record(s)
-    return format(s)
+    s1 = youdao.Engine().query(word)
+    record(s1)
+    s2 = iciba.Engine().query(word)
+    return 'youdao\n======\n' + format(s1) + '\n\niciba\n=====\n' + format(s2)
 
 
 #def fix_tray_icon():
