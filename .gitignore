@@ -2,6 +2,7 @@ dist/
 build/
 __pycache__/
 */__pycache__/
+*.un~
 *.swp
 *.lock
 *.pyc
