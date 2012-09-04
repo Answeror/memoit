@@ -34,5 +34,13 @@ def fetch(key):
 
 
 class Engine(object):
+
+    @property
+    def name(self):
+        return 'iciba'
+
     def query(self, key):
-        return parse(fetch(key))
+        try:
+            return parse(fetch(key))
+        except:
+            return None

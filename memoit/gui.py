@@ -24,7 +24,8 @@ from PyQt4.QtGui import\
         QIcon,\
         QPushButton,\
         QGridLayout,\
-        QDialog
+        QDialog,\
+        QGroupBox
 from PyQt4.QtCore import\
         QRunnable,\
         Qt,\
@@ -54,19 +55,76 @@ class Input(QLineEdit):
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Return:
             self.changed(self.text())
+        elif e.key() == Qt.Key_Escape:
+            self.setText('')
         super(Input, self).keyPressEvent(e)
 
 
-class SignalObject(QObject):
-    """Provide signal functionality to QRunnable."""
+class Output(QTextEdit):
 
-    sig = pyqtSignal(bool)
+    def __init__(self, engine):
+        super(Output, self).__init__()
+        self.setReadOnly(True)
+        self.setFont(QFont('Lucida Sans Unicode'))
 
-    def emit(self, *args):
-        self.sig.emit(*args)
+        self.engine = engine
+        self.engine.query_start.connect(self.invalidate)
+        self.engine.query_finished.connect(self.react)
 
-    def connect(self, *args):
-        self.sig.connect(*args)
+    @pyqtSlot()
+    def invalidate(self):
+        self.setText('Loading...')
+
+    @pyqtSlot(object)
+    def react(self, result):
+        if result is None:
+            self.setText('')
+        else:
+            self.setText(format(result))
+
+
+class Group(QGroupBox):
+
+    def __init__(self, engine):
+        super(Group, self).__init__(engine.name)
+        layout = QVBoxLayout()
+        layout.addWidget(Output(engine))
+        self.setLayout(layout)
+
+
+class Engine(QObject):
+
+    query_start = pyqtSignal()
+    query_finished = pyqtSignal(object)
+
+    @property
+    def name(self):
+        return self.impl.name
+
+    def __init__(self, impl):
+        super(Engine, self).__init__()
+        self.impl = impl
+
+    def query(self, key):
+        self.query_start.emit()
+        runnable = Runnable(lambda: self.impl.query(key), args=(object,))
+        runnable.finished.connect(self.query_finished)
+        QThreadPool.globalInstance().start(runnable)
+
+
+def SignalObject(*args):
+    class Inner(QObject):
+        """Provide signal functionality to QRunnable."""
+
+        sig = pyqtSignal(*args)
+
+        def emit(self, *args):
+            self.sig.emit(*args)
+
+        def connect(self, *args):
+            self.sig.connect(*args)
+
+    return Inner()
 
 
 class Runnable(QRunnable):
@@ -75,10 +133,10 @@ class Runnable(QRunnable):
 
     mutex = QMutex()
 
-    def __init__(self, fn):
+    def __init__(self, fn, args=(bool,)):
         super(Runnable, self).__init__()
         self.fn = fn
-        self.finished = SignalObject()
+        self.finished = SignalObject(*args)
 
     def run(self):
         with QMutexLocker(self.mutex):
@@ -163,13 +221,19 @@ class Window(QWidget):
 
         # main window
         self.setWindowTitle('memoit')
-        output_edit = QTextEdit()
-        output_edit.setReadOnly(True)
-        output_edit.setFont(QFont('Lucida Sans Unicode'))
-        input_edit = Input(lambda s: output_edit.setText(trans(s, self.record)))
+
+        self.engines = [Engine(youdao.Engine()), Engine(iciba.Engine())]
+        self.engines[0].query_finished.connect(self.record)
+
+        def query(key):
+            for engine in self.engines:
+                engine.query(key)
+
         layout = QVBoxLayout()
+        input_edit = Input(query)
         layout.addWidget(input_edit)
-        layout.addWidget(output_edit)
+        for engine in self.engines:
+            layout.addWidget(Group(engine))
         self.setLayout(layout)
 
         # tray
@@ -257,6 +321,7 @@ class Window(QWidget):
         else:
             self.tray.showMessage('Anki', 'Login succeed.')
 
+    @pyqtSlot(object)
     def record(self, s):
         """Record in background."""
         if not self.recorder is None:
@@ -275,41 +340,7 @@ class Window(QWidget):
             QMessageBox.warning(self, 'Anki', 'Record failed.')
 
 
-def trans(word, record):
-    s1 = youdao.Engine().query(word)
-    record(s1)
-    s2 = iciba.Engine().query(word)
-    return 'youdao\n======\n' + format(s1) + '\n\niciba\n=====\n' + format(s2)
-
-
-#def fix_tray_icon():
-    #"""Fix tray icon problem under Win7.
-
-    #See `http://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon`_
-    #for details.
-    #"""
-    #import ctypes
-    #appid = 'answeror.memoit'
-    #ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
-
-
-#def allow_set_foreground_window(processid=-1):
-    #"""Allow a given process to set the foreground window
-
-    #See `https://bitbucket.org/fkimaru/thg/src/5defd12d3b47/tortoisehg/hgqt/workbench.py`_.
-    #"""
-    ## processid = -1 means ASFW_ANY (i.e. allow any process)
-    #if os.name == 'nt':
-        ## on windows we must explicitly allow bringing the main window to
-        ## the foreground. To do so we must use ctypes
-        #from ctypes import windll
-        #windll.user32.AllowSetForegroundWindow(processid)
-
-
 def main(argv):
-    #allow_set_foreground_window()
-    #fix_tray_icon()
-
     app = QApplication(argv)
     app.setOrganizationName('helanic')
     app.setOrganizationDomain('answeror.com')
