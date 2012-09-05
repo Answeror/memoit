@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# don't use relative import here, for mock doesn't support it
-# from .. import youdao
-import youdao
+from .. import youdao
 import os
 from nose.tools import assert_true, assert_equal
 from mock import sentinel, patch
@@ -30,8 +28,8 @@ def test_parse():
         assert_equal(value, ret.get(key))
 
 
-@patch('youdao.parse')
-@patch('youdao.urlopen')
+@patch.object(youdao, 'parse')
+@patch.object(youdao, 'urlopen')
 def test_engine(urlopen, parse):
     urlopen.return_value.__enter__.return_value.read.return_value = sentinel.hello
     engine = youdao.Engine()

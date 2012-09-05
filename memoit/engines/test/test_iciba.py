@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import iciba
+from .. import iciba
 import os
 from nose.tools import assert_true, assert_equal
 from mock import sentinel, patch
@@ -29,8 +29,8 @@ def test_parse():
         assert_equal(value, ret.get(key))
 
 
-@patch('iciba.parse')
-@patch('iciba.urlopen')
+@patch.object(iciba, 'parse')
+@patch.object(iciba, 'urlopen')
 def test_engine(urlopen, parse):
     urlopen.return_value.__enter__.return_value.read.return_value = sentinel.hello
     engine = iciba.Engine()

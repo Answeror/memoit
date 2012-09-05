@@ -25,12 +25,12 @@ def output(s):
     print(format(s))
 
 
-def main(argv):
-    engine = youdao.Engine()
-    output(engine.query(argv[1]))
-    return 0
+#def main(argv):
+    #engine = youdao.Engine()
+    #output(engine.query(argv[1]))
+    #return 0
 
 
-if __name__ == '__main__':
-    import sys
-    main(sys.argv)
+#if __name__ == '__main__':
+    #import sys
+    #main(sys.argv)

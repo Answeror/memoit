@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import core
-from engines.util import Struct
+from .. import core
+from ..engines.util import Struct
 from nose.tools import assert_equal
 from textwrap import dedent
 
