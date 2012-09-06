@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 
-from urllib.request import urlopen
+#from urllib.request import urlopen
 from urllib.parse import urlencode
+import urllib3
 
 
 BASE = 'http://www.iciba.com/index.php'
@@ -13,9 +14,9 @@ def uri(key):
     return '%s?%s' % (BASE, urlencode({'a': 'suggest', 's': key.replace(' ', '|1{')}))
 
 
-def fetch(key):
-    with urlopen(uri(key)) as f:
-        return f.read()
+#def fetch(key):
+    #with urlopen(uri(key)) as f:
+        #return f.read()
 
 
 def parse(data):
@@ -29,8 +30,20 @@ def parse(data):
 
 class Engine(object):
 
+    def __init__(self):
+        self.http = urllib3.PoolManager()
+
+    def fetch(self, key):
+        r = self.http.request('GET', uri(key))
+        if r.status == 200:
+            return r.data
+        else:
+            return None
+
     def query(self, key):
         try:
-            return parse(fetch(key))
+            data = self.fetch(key)
+            if data:
+                return parse(data)
         except:
             return None

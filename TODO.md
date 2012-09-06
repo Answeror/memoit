@@ -1,3 +1,5 @@
+* 重写`engines/test/test_iciba.py`.
+* 使用`urllib3`重写所有`urlopen`.
 * 建议词条弹出窗口延迟时间用户设定.
 * ~~建议词条.~~
 * 为引擎的`query`方法的返回值提供字符串转换.

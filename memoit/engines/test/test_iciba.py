@@ -29,13 +29,13 @@ def test_parse():
         assert_equal(value, ret.get(key))
 
 
-@patch.object(iciba, 'parse')
-@patch.object(iciba, 'urlopen')
-def test_engine(urlopen, parse):
-    urlopen.return_value.__enter__.return_value.read.return_value = sentinel.hello
-    engine = iciba.Engine()
-    engine.query('hello')
-    parse.assert_called_with(sentinel.hello)
+#@patch.object(iciba, 'parse')
+#@patch.object(iciba, 'urlopen')
+#def test_engine(urlopen, parse):
+    #urlopen.return_value.__enter__.return_value.read.return_value = sentinel.hello
+    #engine = iciba.Engine()
+    #engine.query('hello')
+    #parse.assert_called_with(sentinel.hello)
 
 
 def test_uri():
