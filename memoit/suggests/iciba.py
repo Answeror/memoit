@@ -30,4 +30,7 @@ def parse(data):
 class Engine(object):
 
     def query(self, key):
-        return parse(fetch(key))
+        try:
+            return parse(fetch(key))
+        except:
+            return None

@@ -27,20 +27,21 @@ from PyQt4.QtGui import\
         QDialog,\
         QGroupBox
 from PyQt4.QtCore import\
-        QRunnable,\
         Qt,\
         QObject,\
         pyqtSignal,\
-        QMutex,\
         QFile,\
         QEvent,\
         QTimer,\
-        QMutexLocker, QThreadPool, pyqtSlot
+        QThreadPool,\
+        pyqtSlot
 from .anki import Recorder
 from datetime import datetime
 from . import resources_rc
 #import os
 from .settings import settings
+from .ui.runnable import Runnable
+from .ui.suggest import Suggest
 
 from .core import format
 from .engines import youdao, iciba
@@ -51,6 +52,7 @@ class Input(QLineEdit):
     def __init__(self, changed):
         super(Input, self).__init__()
         self.changed = changed
+        self.completer = Suggest(self)
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Return:
@@ -110,37 +112,6 @@ class Engine(QObject):
         runnable = Runnable(lambda: self.impl.query(key), args=(object,))
         runnable.finished.connect(self.query_finished)
         QThreadPool.globalInstance().start(runnable)
-
-
-def SignalObject(*args):
-    class Inner(QObject):
-        """Provide signal functionality to QRunnable."""
-
-        sig = pyqtSignal(*args)
-
-        def emit(self, *args):
-            self.sig.emit(*args)
-
-        def connect(self, *args):
-            self.sig.connect(*args)
-
-    return Inner()
-
-
-class Runnable(QRunnable):
-    """Wrap ``fn`` in a mutex and emit signal using the return value of
-    ``fn``."""
-
-    mutex = QMutex()
-
-    def __init__(self, fn, args=(bool,)):
-        super(Runnable, self).__init__()
-        self.fn = fn
-        self.finished = SignalObject(*args)
-
-    def run(self):
-        with QMutexLocker(self.mutex):
-            self.finished.emit(self.fn())
 
 
 class SettingsDialog(QDialog):
