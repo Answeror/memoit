@@ -126,7 +126,7 @@ class Suggest(QObject):
         self.popup.setUpdatesEnabled(True)
 
         h = self.popup.sizeHintForRow(0) * min(7, len(choices)) + 3
-        self.popup.resize(self.popup.width(), h)
+        self.popup.resize(self.editor.width(), h)
 
         self.popup.move(self.editor.mapToGlobal(QPoint(0, self.editor.height())))
         self.popup.setFocus()

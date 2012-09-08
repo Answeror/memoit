@@ -54,19 +54,28 @@ from .core import format
 from .engines import youdao, iciba
 
 
+STYLESHEET = 'style.css'
+
+
 class Title(QWidget):
     """Translation area title widget."""
 
     def __init__(self, name, parent=None):
         super(Title, self).__init__(parent)
         layout = QHBoxLayout()
-        self.toggler = QPushButton(name)
-        self.toggler.setCheckable(True)
-        self.toggler.setChecked(False)
-        layout.addWidget(Splitter(width=30))
+        self.toggler = Toggler(text=name, checked=False)
+        layout.addWidget(Splitter())
         layout.addWidget(self.toggler)
         layout.addWidget(Splitter())
         self.setLayout(layout)
+
+
+class Toggler(QPushButton):
+
+    def __init__(self, text, checked, parent=None):
+        super(Toggler, self).__init__(text, parent=parent)
+        self.setCheckable(True)
+        self.setChecked(checked)
 
 
 class Input(QLineEdit):
@@ -119,6 +128,7 @@ class Group(QWidget):
         super(Group, self).__init__(parent)
         self.engine = engine
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.title = Title(engine.name)
         self.title.toggler.toggled.connect(self.toggled)
         layout.addWidget(self.title)
@@ -301,6 +311,15 @@ class Window(QWidget):
         # must after settings set up
         self.try_login()
 
+        # let the whole window be a glass
+        try:
+            self.setAttribute(Qt.WA_NoSystemBackground)
+            from ctypes import windll, c_int, byref
+            windll.dwmapi.DwmExtendFrameIntoClientArea(
+                    c_int(self.winId()), byref(c_int(-1)))
+        except:
+            pass
+
     @pyqtSlot(bool)
     def handle_area_toggled(self, selected):
         if self.input_area.last_key:
@@ -430,6 +449,9 @@ def main(argv):
     app.setQuitOnLastWindowClosed(False)
     # don't know why
     app.setWindowIcon(QIcon(':/taskbar.png'))
+    # style
+    with open(STYLESHEET, 'r') as f:
+        app.setStyleSheet(f.read())
     win = Window()
     win.show()
     return app.exec_()

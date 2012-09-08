@@ -33,7 +33,8 @@ setup(
         options={
             'build_exe': {
                 'includes': includes,
-                'excludes': excludes
+                'excludes': excludes,
+                'include_files': ['style.css']
                 }
             },
         executables=[Executable(

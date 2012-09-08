@@ -13,9 +13,9 @@ class Splitter(QFrame):
         self.setFrameStyle(QFrame.HLine)
         self.width = width
         if width:
-            self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+            self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         else:
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
     def sizeHint(self):
         if self.width:
