@@ -1,0 +1,20 @@
+frame_构架, 骨架结构
+framed_加外框
+frameman_配线架工
+framer_制定者, 创作者
+frameset_框式支架
+frameshift_移码的
+framesite_黑钻石
+framework_骨架, 结构框
+framework|1{for environmental action_环境行动纲领
+framework|1{of body_车身构架
+framework|1{of interlocking device_内锁装置框架
+framework|1{silicate_[矿]网硅酸盐(类)
+framework|1{structure_构架结构
+frame|1{aerial_框形天线
+frame|1{alignment_帧同步
+frame|1{amplitude_帧扫描振幅
+frame|1{arch_构架拱
+frame|1{bar_(电影)分 格线
+frame|1{bend_帧图象变形, 抛物线形场弯曲校正信号
+frame|1{blanking impulse_帧熄灭脉冲

@@ -26,17 +26,57 @@ from PyQt4.QtGui import\
         QGridLayout,\
         QRadioButton,\
         QDialog
-from PyQt4.QtCore import QRunnable, Qt, QObject, pyqtSignal, QMutex,\
-        QSettings,\
+from PyQt4.QtCore import\
+        Qt,\
+        QObject,\
+        pyqtSignal,\
+        pyqtSlot,\
+        pyqtProperty,\
         QFile,\
         QEvent,\
         QTimer,\
-        QMutexLocker, QThreadPool, pyqtSlot
-from .core import format, parse, query
+        QThreadPool,\
+        QRunnable,\
+        QMutex,\
+        QMutexLocker,\
+        QSemaphore
+from functools import partial
+from queue import Queue
 from .anki import Recorder
-from datetime import datetime
+#from datetime import datetime
 from . import resources_rc
 #import os
+from .settings import settings
+from .ui.runnable import Runnable, async_actions
+from .ui.suggest import Suggest
+from .ui.splitter import Splitter
+
+from .core import format
+from .engines import youdao, iciba
+
+
+STYLESHEET = 'style.css'
+
+
+class Title(QWidget):
+    """Translation area title widget."""
+
+    def __init__(self, name, parent=None):
+        super(Title, self).__init__(parent)
+        layout = QHBoxLayout()
+        self.toggler = Toggler(text=name, checked=False)
+        layout.addWidget(Splitter())
+        layout.addWidget(self.toggler)
+        layout.addWidget(Splitter())
+        self.setLayout(layout)
+
+
+class Toggler(QPushButton):
+
+    def __init__(self, text, checked, parent=None):
+        super(Toggler, self).__init__(text, parent=parent)
+        self.setCheckable(True)
+        self.setChecked(checked)
 
 
 class Input(QLineEdit):
@@ -44,86 +84,88 @@ class Input(QLineEdit):
     def __init__(self, changed):
         super(Input, self).__init__()
         self.changed = changed
+        self.completer = Suggest(self)
+        self.last_key = None
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Return:
+            self.last_key = self.text()
             self.changed(self.text())
+        elif e.key() == Qt.Key_Escape:
+            self.setText('')
         super(Input, self).keyPressEvent(e)
 
 
-class SignalObject(QObject):
-    """Provide signal functionality to QRunnable."""
+class Output(QTextEdit):
 
-    sig = pyqtSignal(bool)
+    def __init__(self, engine):
+        super(Output, self).__init__()
+        self.setReadOnly(True)
+        self.setFont(QFont('Lucida Sans Unicode'))
 
-    def emit(self, *args):
-        self.sig.emit(*args)
+        self.engine = engine
+        self.engine.query_start.connect(self.invalidate)
+        self.engine.query_finished.connect(self.react)
 
-    def connect(self, *args):
-        self.sig.connect(*args)
+    @pyqtSlot()
+    def invalidate(self):
+        self.setText('Loading...')
+
+    @pyqtSlot(object)
+    def react(self, result):
+        if result is None:
+            self.setText('')
+        else:
+            self.setText(format(result))
 
 
-class Runnable(QRunnable):
-    """Wrap ``fn`` in a mutex and emit signal using the return value of
-    ``fn``."""
+class Group(QWidget):
+    """Translation area."""
 
-    mutex = QMutex()
+    # name checking state changed
+    toggled = pyqtSignal(bool)
 
-    def __init__(self, fn):
-        super(Runnable, self).__init__()
-        self.fn = fn
-        self.finished = SignalObject()
+    def __init__(self, engine, parent=None):
+        super(Group, self).__init__(parent)
+        self.engine = engine
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.title = Title(engine.name)
+        self.title.toggler.toggled.connect(self.toggled)
+        layout.addWidget(self.title)
+        layout.addWidget(Output(engine))
+        self.setLayout(layout)
 
-    def run(self):
+    def selected(self):
+        return self.title.toggler.isChecked()
+
+    def last_result(self):
+        return self.engine.last_result
+
+
+class Engine(QObject):
+
+    query_start = pyqtSignal()
+    query_finished = pyqtSignal(object)
+
+    @pyqtProperty(str)
+    def name(self):
+        return self.impl.name
+
+    def __init__(self, impl):
+        super(Engine, self).__init__()
+        self.impl = impl
+        self.mutex = QMutex()
+
+    def query(self, key):
         with QMutexLocker(self.mutex):
-            self.finished.emit(self.fn())
+            self.query_start.emit()
+            self._query_finished(self.impl.query(key))
 
-
-class Settings(object):
-
-    def __init__(self):
-        self.settings = QSettings('helanic', 'memoit')
-        self.groupname = 'anki'
-
-    def get(self, key):
-        self.settings.beginGroup(self.groupname)
-        try:
-            return self.settings.value(key, '')
-        finally:
-            self.settings.endGroup()
-
-    def set(self, key, value):
-        self.settings.beginGroup(self.groupname)
-        try:
-            self.settings.setValue(key, value)
-        finally:
-            self.settings.endGroup()
-
-    UNDEFINED = 'undefined'
-
-    @property
-    def username(self):
-        return self.get('username')
-
-    @username.setter
-    def username(self, value):
-        return self.set('username', value)
-
-    @property
-    def password(self):
-        return self.get('password')
-
-    @password.setter
-    def password(self, value):
-        return self.set('password', value)
-
-    @property
-    def deck(self):
-        return self.get('deck')
-
-    @deck.setter
-    def deck(self, value):
-        return self.set('deck', value)
+    def _query_finished(self, result):
+        """Save last result and emit finished signal."""
+        self.last_result = result
+        self.query_finished.emit(result)
 
     @property
     def minimize_on_close(self):
@@ -223,6 +265,50 @@ class Tray(QSystemTrayIcon):
         self.setContextMenu(menu)
 
 
+def dump_queue(queue):
+    """Empties all pending items in a queue and returns them in a list."""
+    result = []
+    queue.put('STOP')
+    for i in iter(queue.get, 'STOP'):
+        result.append(i)
+    return result
+
+
+class Collect(QRunnable):
+    """Collect results from engines and emit signal."""
+
+    def __init__(self, engines, finished):
+        super(Collect, self).__init__()
+        self.engines = engines
+        self.semaphore = QSemaphore()
+        self.queue = Queue()
+        self.finished = finished
+        for engine in engines:
+            engine.query_finished.connect(self.handle_query_finished)
+
+    def run(self):
+        for i in range(len(self.engines)):
+            self.semaphore.acquire()
+        self.finished(dump_queue(self.queue))
+
+    @pyqtSlot(object)
+    def handle_query_finished(self, response):
+        self.queue.put(response)
+        self.semaphore.release()
+
+
+class ThreadSafeRecorder(QObject):
+
+    def __init__(self, impl):
+        QObject.__init__(self)
+        self.impl = impl
+        self.mutex = QMutex()
+
+    def add(self, key, responses):
+        with QMutexLocker(self.mutex):
+            return self.impl.add(key=key, responses=responses)
+
+
 class Window(QWidget):
 
     def __init__(self):
@@ -231,19 +317,28 @@ class Window(QWidget):
         self.recorder = None
 
         # settins
-        self.settings = Settings()
+        self.settings = settings(dict(
+            username='',
+            password='',
+            deck=''
+            ))
         self.settings_dialog = SettingsDialog(self.settings)
         self.settings_dialog.accepted.connect(self.login)
 
         # main window
         self.setWindowTitle('memoit')
-        output_edit = QTextEdit()
-        output_edit.setReadOnly(True)
-        output_edit.setFont(QFont('Lucida Sans Unicode'))
-        input_edit = Input(lambda s: output_edit.setText(trans(s, self.record)))
+
+        self.engines = [Engine(youdao.Engine()), Engine(iciba.Engine())]
+
         layout = QVBoxLayout()
-        layout.addWidget(input_edit)
-        layout.addWidget(output_edit)
+        self.input_area = Input(self.query)
+        layout.addWidget(self.input_area)
+        self.output_areas = []
+        for engine in self.engines:
+            area = Group(engine)
+            area.toggled.connect(self.handle_area_toggled)
+            layout.addWidget(area)
+            self.output_areas.append(area)
         self.setLayout(layout)
 
         # tray
@@ -253,6 +348,39 @@ class Window(QWidget):
 
         # must after settings set up
         self.try_login()
+
+        # let the whole window be a glass
+        try:
+            self.setAttribute(Qt.WA_NoSystemBackground)
+            from ctypes import windll, c_int, byref
+            windll.dwmapi.DwmExtendFrameIntoClientArea(
+                    c_int(self.winId()), byref(c_int(-1)))
+        except:
+            pass
+
+    @pyqtSlot(bool)
+    def handle_area_toggled(self, selected):
+        if self.input_area.last_key:
+            self.record(
+                self.input_area.last_key,
+                list(map(Group.last_result, filter(Group.selected, self.output_areas)))
+                )
+
+    def query(self, key):
+        """Emit query."""
+        collect = Collect(
+            list(map(lambda a: a.engine, filter(Group.selected, self.output_areas))),
+            lambda r: self.record(key, r)
+            )
+        QThreadPool.globalInstance().start(collect)
+        #for engine in self.engines:
+            #QThreadPool.globalInstance().start(
+                    #Runnable(lambda: engine.query(key), args=(object,)))
+        async_actions(map(lambda e: partial(e.query, key), self.engines))
+
+    def closeEvent(self, e):
+        QApplication.instance().quit()
+        super(Window, self).closeEvent(e)
 
     def changeEvent(self, e):
         if e.type() == QEvent.WindowStateChange and self.isMinimized():
@@ -297,8 +425,17 @@ class Window(QWidget):
 
                 # perfect
                 # see `http://stackoverflow.com/a/7820461`_
-                self.show()
+                # ``Qt.WindowNoState`` and ``Qt.WindowActive`` are all
+                # acceptable
+                # ``show`` and ``setWindowState`` calling order matters
+                # if ``show`` first and window is minimized (not close)
+                # then this call order will produce "fly in" effect
+                # but for bdist version, ``setWindowState`` first wiil
+                # cause focus lost
                 self.setWindowState(Qt.WindowActive)
+                self.show()
+                self.raise_()
+                self.activateWindow()
 
     @pyqtSlot()
     def about(self):
@@ -312,15 +449,16 @@ class Window(QWidget):
             self.login()
 
     def login(self):
-        assert self.settings.username, 'Invalid username.'
+        assert self.settings.username,\
+            'Invalid username: %s' % self.settings.username
 
         def inner():
             try:
-                self.recorder = Recorder(
+                self.recorder = ThreadSafeRecorder(Recorder(
                     username=self.settings.username,
                     password=self.settings.password,
                     deck=self.settings.deck
-                    )
+                    ))
             except:
                 return False
             else:
@@ -337,14 +475,17 @@ class Window(QWidget):
         else:
             self.tray.showMessage('Anki', 'Login succeed.')
 
-    def record(self, s):
+    @pyqtSlot(object)
+    def record(self, key, responses):
         """Record in background."""
         if not self.recorder is None:
             runnable = Runnable(lambda: self.recorder.add(
-                    word=s.word,
-                    pron=s.phonetic_symbol,
-                    trans='\n'.join(s.custom_translations),
-                    time=datetime.now()
+                    #word=s.word,
+                    #pron=s.phonetic_symbol,
+                    #trans='\n'.join(s.custom_translations),
+                    #time=datetime.now()
+                    key=key,
+                    responses=responses
                     ))
             runnable.finished.connect(self.recorded)
             QThreadPool.globalInstance().start(runnable)
@@ -355,29 +496,20 @@ class Window(QWidget):
             QMessageBox.warning(self, 'Anki', 'Record failed.')
 
 
-def trans(word, record):
-    s = parse(query(word))
-    record(s)
-    return format(s)
-
-
-#def fix_tray_icon():
-    #"""Fix tray icon problem under Win7.
-
-    #See `http://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon`_
-    #for details.
-    #"""
-    #import ctypes
-    #appid = 'answeror.memoit'
-    #ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
-
-
 def main(argv):
-    #fix_tray_icon()
-
     app = QApplication(argv)
+    app.setOrganizationName('helanic')
+    app.setOrganizationDomain('answeror.com')
+    app.setApplicationName('memoit')
+    # do not quit when main window in hidden and tray menu generated dialog
+    # closed
+    # see `http://stackoverflow.com/a/7979775/238472`_ for details
+    app.setQuitOnLastWindowClosed(False)
     # don't know why
     app.setWindowIcon(QIcon(':/taskbar.png'))
+    # style
+    with open(STYLESHEET, 'r') as f:
+        app.setStyleSheet(f.read())
     win = Window()
     win.show()
     return app.exec_()

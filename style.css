@@ -1,0 +1,38 @@
+Input {
+    padding: 5px;
+}
+
+/*borrowed from G+*/
+
+Toggler {
+    background-color: QLinearGradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 whiteSmoke, stop: 1 #F1F1F1);
+    border: 1px solid #832014;
+    width: 90px;
+    color: #444;
+    font-size: 11px;
+    font-weight: bold;
+    height: 27px;
+    line-height: 27px;
+}
+
+Toggler:hover {
+    background-color: QLinearGradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #EEE, stop: 1 #E0E0E0);
+    border: 1px solid #832014;
+    width: 90px;
+    color: #444;
+    font-size: 11px;
+    font-weight: bold;
+    height: 27px;
+    line-height: 27px;
+}
+
+Toggler:checked {
+    background-color: QLinearGradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #EC7045, stop: 1 #D04028);
+    border: 1px solid #832014;
+    width: 90px;
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    height: 27px;
+    line-height: 27px;
+}

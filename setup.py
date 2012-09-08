@@ -27,18 +27,21 @@ excludes = [
 
 setup(
         name='memoit',
-        version='0.0.1',
+        version='0.0.2',
         packages=['memoit'],
         cmdclass=cmds,
         options={
             'build_exe': {
                 'includes': includes,
-                'excludes': excludes
+                'excludes': excludes,
+                'include_files': ['style.css']
                 }
             },
         executables=[Executable(
             'main.py',
             base='Win32GUI',
-            targetName='memoit.exe'
+            targetName='memoit.exe',
+            compress=True,
+            icon='memoit/icons/64.ico'
             )]
         )
