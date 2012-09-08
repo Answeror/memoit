@@ -1,3 +1,5 @@
+* 把group box换成splitter
+* 用toggle button决定record的词条翻译.
 * 重写`engines/test/test_iciba.py`.
 * 使用`urllib3`重写所有`urlopen`.
 * 建议词条弹出窗口延迟时间用户设定.

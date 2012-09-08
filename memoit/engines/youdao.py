@@ -18,13 +18,24 @@ from .util import Struct
 BASE = 'http://dict.youdao.com/fsearch'
 
 
+class Result(Struct):
+
+    def __str__(self):
+        sep = '-' * 13
+        return '\n'.join([
+            self.word if not self.phonetic_symbol else '%s [%s]' % (self.word, self.phonetic_symbol),
+            sep,
+            '\n'.join(self.custom_translations)
+            ])
+
+
 def parse(xml):
     d = pq(xml)
     word = d('return-phrase').text()
     phonetic_symbol = d('phonetic-symbol').text()
     contents = d('custom-translation > translation > content')
     trans = contents.map(lambda i: pq(this).text())
-    return Struct(
+    return Result(
         word=word,
         phonetic_symbol=phonetic_symbol,
         custom_translations=[t for t in trans if not t is None]

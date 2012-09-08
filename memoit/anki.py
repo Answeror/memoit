@@ -59,6 +59,7 @@ def add(opener, front, back):
 
 
 class Recorder(object):
+    """Thread safe Anki recorder."""
 
     def __init__(self, username, password, deck):
         self.opener = make_opener(username, password)
@@ -67,9 +68,11 @@ class Recorder(object):
         if not activate(self.opener, deck):
             raise RuntimeError('Open deck failed.')
 
-    def add(self, word, trans, pron=None, **kargs):
+    #def add(self, word, trans, pron=None, **kargs):
+    def add(self, key, responses):
+        p = next(filter(lambda r: hasattr(r, 'phonetic_symbol'), responses), None)
         return add(
             self.opener,
-            word if not pron else '%s [%s]' % (word, pron),
-            trans
+            front=key if not p else '%s [%s]' % (key, p.phonetic_symbol),
+            back='\n\n'.join([str(r) for r in responses])
             )

@@ -18,3 +18,6 @@ def SignalObject(*args):
             self.sig.connect(*args)
 
     return Inner()
+
+
+Signal = SignalObject

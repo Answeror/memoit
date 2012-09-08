@@ -12,13 +12,24 @@ from .util import Struct
 BASE = 'http://dict-co.iciba.com/api/dictionary.php'
 
 
+class Result(Struct):
+
+    def __str__(self):
+        sep = '-' * 13
+        return '\n'.join([
+            self.word if not self.phonetic_symbol else '%s [%s]' % (self.word, self.phonetic_symbol),
+            sep,
+            '\n'.join(self.custom_translations)
+            ])
+
+
 def parse(xml):
     d = pq(xml)
     word = d('key').text()
     phonetic_symbol = d('ps').eq(0).text()
     pos = d('pos').map(lambda i: pq(this).text())
     acs = d('acceptation').map(lambda i: pq(this).text())
-    return Struct(
+    return Result(
         word=word,
         phonetic_symbol=phonetic_symbol,
         custom_translations=[p + ' ' + a for p, a in zip(pos, acs)]

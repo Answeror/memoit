@@ -24,27 +24,48 @@ from PyQt4.QtGui import\
         QIcon,\
         QPushButton,\
         QGridLayout,\
-        QDialog,\
-        QGroupBox
+        QDialog
 from PyQt4.QtCore import\
         Qt,\
         QObject,\
         pyqtSignal,\
+        pyqtSlot,\
         QFile,\
         QEvent,\
         QTimer,\
         QThreadPool,\
-        pyqtSlot
+        QRunnable,\
+        QMutex,\
+        QMutexLocker,\
+        QSemaphore
+from functools import partial
+from queue import Queue
 from .anki import Recorder
-from datetime import datetime
+#from datetime import datetime
 from . import resources_rc
 #import os
 from .settings import settings
-from .ui.runnable import Runnable
+from .ui.runnable import Runnable, async_actions
 from .ui.suggest import Suggest
+from .ui.splitter import Splitter
 
 from .core import format
 from .engines import youdao, iciba
+
+
+class Title(QWidget):
+    """Translation area title widget."""
+
+    def __init__(self, name, parent=None):
+        super(Title, self).__init__(parent)
+        layout = QHBoxLayout()
+        self.toggler = QPushButton(name)
+        self.toggler.setCheckable(True)
+        self.toggler.setChecked(False)
+        layout.addWidget(Splitter(width=30))
+        layout.addWidget(self.toggler)
+        layout.addWidget(Splitter())
+        self.setLayout(layout)
 
 
 class Input(QLineEdit):
@@ -85,11 +106,27 @@ class Output(QTextEdit):
             self.setText(format(result))
 
 
-class Group(QGroupBox):
+class Group(QWidget):
+    """Translation area."""
 
-    def __init__(self, engine):
-        super(Group, self).__init__(engine.name)
+    # name checking state changed
+    toggled = pyqtSignal(bool)
+
+    @property
+    def selected(self):
+        return self.title.toggler.checked()
+
+    @property
+    def last_result(self):
+        return self.engine.last_result
+
+    def __init__(self, engine, parent=None):
+        super(Group, self).__init__(parent)
+        self.engine = engine
         layout = QVBoxLayout()
+        title = Title(engine.name)
+        title.toggler.toggled.connect(self.toggled)
+        layout.addWidget(title)
         layout.addWidget(Output(engine))
         self.setLayout(layout)
 
@@ -106,12 +143,17 @@ class Engine(QObject):
     def __init__(self, impl):
         super(Engine, self).__init__()
         self.impl = impl
+        self.mutex = QMutex()
 
     def query(self, key):
-        self.query_start.emit()
-        runnable = Runnable(lambda: self.impl.query(key), args=(object,))
-        runnable.finished.connect(self.query_finished)
-        QThreadPool.globalInstance().start(runnable)
+        with QMutexLocker(self.mutex):
+            self.query_start.emit()
+            self._query_finished(self.impl.query(key))
+
+    def _query_finished(self, result):
+        """Save last result and emit finished signal."""
+        self.last_result = result
+        self.query_finished.emit(result)
 
 
 class SettingsDialog(QDialog):
@@ -174,6 +216,50 @@ class Tray(QSystemTrayIcon):
         self.setContextMenu(menu)
 
 
+def dump_queue(queue):
+    """Empties all pending items in a queue and returns them in a list."""
+    result = []
+    queue.put('STOP')
+    for i in iter(queue.get, 'STOP'):
+        result.append(i)
+    return result
+
+
+class Collect(QRunnable):
+    """Collect results from engines and emit signal."""
+
+    def __init__(self, engines, finished):
+        super(Collect, self).__init__()
+        self.engines = engines
+        self.semaphore = QSemaphore()
+        self.queue = Queue()
+        self.finished = finished
+        for engine in engines:
+            engine.query_finished.connect(self.handle_query_finished)
+
+    def run(self):
+        for i in range(len(self.engines)):
+            self.semaphore.acquire()
+        self.finished(dump_queue(self.queue))
+
+    @pyqtSlot(object)
+    def handle_query_finished(self, response):
+        self.queue.put(response)
+        self.semaphore.release()
+
+
+class ThreadSafeRecorder(QObject):
+
+    def __init__(self, impl):
+        QObject.__init__(self)
+        self.impl = impl
+        self.mutex = QMutex()
+
+    def add(self, key, responses):
+        with QMutexLocker(self.mutex):
+            return self.impl.add(key=key, responses=responses)
+
+
 class Window(QWidget):
 
     def __init__(self):
@@ -194,17 +280,14 @@ class Window(QWidget):
         self.setWindowTitle('memoit')
 
         self.engines = [Engine(youdao.Engine()), Engine(iciba.Engine())]
-        self.engines[0].query_finished.connect(self.record)
-
-        def query(key):
-            for engine in self.engines:
-                engine.query(key)
 
         layout = QVBoxLayout()
-        input_edit = Input(query)
+        input_edit = Input(self.query)
         layout.addWidget(input_edit)
         for engine in self.engines:
-            layout.addWidget(Group(engine))
+            area = Group(engine)
+            #area.toggled.connect(self.rerecord)
+            layout.addWidget(area)
         self.setLayout(layout)
 
         # tray
@@ -214,6 +297,15 @@ class Window(QWidget):
 
         # must after settings set up
         self.try_login()
+
+    def query(self, key):
+        """Emit query."""
+        collect = Collect(self.engines, lambda r: self.record(key, r))
+        QThreadPool.globalInstance().start(collect)
+        #for engine in self.engines:
+            #QThreadPool.globalInstance().start(
+                    #Runnable(lambda: engine.query(key), args=(object,)))
+        async_actions(map(lambda e: partial(e.query, key), self.engines))
 
     def closeEvent(self, e):
         QApplication.instance().quit()
@@ -271,11 +363,11 @@ class Window(QWidget):
 
         def inner():
             try:
-                self.recorder = Recorder(
+                self.recorder = ThreadSafeRecorder(Recorder(
                     username=self.settings.username,
                     password=self.settings.password,
                     deck=self.settings.deck
-                    )
+                    ))
             except:
                 return False
             else:
@@ -293,14 +385,16 @@ class Window(QWidget):
             self.tray.showMessage('Anki', 'Login succeed.')
 
     @pyqtSlot(object)
-    def record(self, s):
+    def record(self, key, responses):
         """Record in background."""
         if not self.recorder is None:
             runnable = Runnable(lambda: self.recorder.add(
-                    word=s.word,
-                    pron=s.phonetic_symbol,
-                    trans='\n'.join(s.custom_translations),
-                    time=datetime.now()
+                    #word=s.word,
+                    #pron=s.phonetic_symbol,
+                    #trans='\n'.join(s.custom_translations),
+                    #time=datetime.now()
+                    key=key,
+                    responses=responses
                     ))
             runnable.finished.connect(self.recorded)
             QThreadPool.globalInstance().start(runnable)
