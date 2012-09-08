@@ -8,9 +8,9 @@ Python3 only.
 
 ## Snapshots
 
-![Main window.](http://github.com//memoit/raw/master/snapshots/main.png)
+![Main window.](http://github.com/Answeror/memoit/raw/master/snapshots/main.png)
 
-![Suggest](http://github.com//memoit/raw/master/snapshots/suggest.png)
+![Suggest](http://github.com/Answeror/memoit/raw/master/snapshots/suggest.png)
 
 ## Usage
 
