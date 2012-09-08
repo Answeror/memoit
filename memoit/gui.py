@@ -30,6 +30,7 @@ from PyQt4.QtCore import\
         QObject,\
         pyqtSignal,\
         pyqtSlot,\
+        pyqtProperty,\
         QFile,\
         QEvent,\
         QTimer,\
@@ -74,9 +75,11 @@ class Input(QLineEdit):
         super(Input, self).__init__()
         self.changed = changed
         self.completer = Suggest(self)
+        self.last_key = None
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Return:
+            self.last_key = self.text()
             self.changed(self.text())
         elif e.key() == Qt.Key_Escape:
             self.setText('')
@@ -112,23 +115,21 @@ class Group(QWidget):
     # name checking state changed
     toggled = pyqtSignal(bool)
 
-    @property
-    def selected(self):
-        return self.title.toggler.checked()
-
-    @property
-    def last_result(self):
-        return self.engine.last_result
-
     def __init__(self, engine, parent=None):
         super(Group, self).__init__(parent)
         self.engine = engine
         layout = QVBoxLayout()
-        title = Title(engine.name)
-        title.toggler.toggled.connect(self.toggled)
-        layout.addWidget(title)
+        self.title = Title(engine.name)
+        self.title.toggler.toggled.connect(self.toggled)
+        layout.addWidget(self.title)
         layout.addWidget(Output(engine))
         self.setLayout(layout)
+
+    def selected(self):
+        return self.title.toggler.isChecked()
+
+    def last_result(self):
+        return self.engine.last_result
 
 
 class Engine(QObject):
@@ -136,7 +137,7 @@ class Engine(QObject):
     query_start = pyqtSignal()
     query_finished = pyqtSignal(object)
 
-    @property
+    @pyqtProperty(str)
     def name(self):
         return self.impl.name
 
@@ -282,12 +283,14 @@ class Window(QWidget):
         self.engines = [Engine(youdao.Engine()), Engine(iciba.Engine())]
 
         layout = QVBoxLayout()
-        input_edit = Input(self.query)
-        layout.addWidget(input_edit)
+        self.input_area = Input(self.query)
+        layout.addWidget(self.input_area)
+        self.output_areas = []
         for engine in self.engines:
             area = Group(engine)
-            #area.toggled.connect(self.rerecord)
+            area.toggled.connect(self.handle_area_toggled)
             layout.addWidget(area)
+            self.output_areas.append(area)
         self.setLayout(layout)
 
         # tray
@@ -298,9 +301,20 @@ class Window(QWidget):
         # must after settings set up
         self.try_login()
 
+    @pyqtSlot(bool)
+    def handle_area_toggled(self, selected):
+        if self.input_area.last_key:
+            self.record(
+                self.input_area.last_key,
+                list(map(Group.last_result, filter(Group.selected, self.output_areas)))
+                )
+
     def query(self, key):
         """Emit query."""
-        collect = Collect(self.engines, lambda r: self.record(key, r))
+        collect = Collect(
+            list(map(lambda a: a.engine, filter(Group.selected, self.output_areas))),
+            lambda r: self.record(key, r)
+            )
         QThreadPool.globalInstance().start(collect)
         #for engine in self.engines:
             #QThreadPool.globalInstance().start(
