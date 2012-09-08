@@ -27,7 +27,7 @@ excludes = [
 
 setup(
         name='memoit',
-        version='0.0.2dev',
+        version='0.0.2',
         packages=['memoit'],
         cmdclass=cmds,
         options={
